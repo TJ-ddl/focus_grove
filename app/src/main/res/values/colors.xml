@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="cream">#F7F2E7</color>
+    <color name="cream_deep">#EFE7D6</color>
+    <color name="ink">#24352B</color>
+    <color name="forest">#2F4A32</color>
+    <color name="sage">#8FAE8B</color>
+    <color name="sage_light">#DCE7D6</color>
+    <color name="muted">#5A6659</color>
+</resources>

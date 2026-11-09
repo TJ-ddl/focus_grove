@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/widget_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="今日专注"
+        android:textColor="@color/muted"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widget_minutes"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0 分钟"
+        android:textColor="@color/ink"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/widget_sub"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="0 棵树 · 连续 0 天"
+        android:textColor="@color/muted"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widget_quick"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_btn_bg"
+        android:paddingStart="12dp"
+        android:paddingTop="6dp"
+        android:paddingEnd="12dp"
+        android:paddingBottom="6dp"
+        android:text="快速开始 25 分钟"
+        android:textColor="@color/cream"
+        android:textSize="12sp" />
+</LinearLayout>

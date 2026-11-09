@@ -1,0 +1,17 @@
+# Build output
+.gradle/
+app/build/
+build/
+dist/
+.kotlin/
+
+# Local machine config (contains your user path)
+local.properties
+
+# Signing material — NEVER publish
+keystore/
+
+# IDE
+.idea/
+*.iml
+.DS_Store

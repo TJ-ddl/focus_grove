@@ -1,0 +1,50 @@
+[
+  {
+    "id": "sapling",
+    "name": "初芽",
+    "rarity": "free",
+    "price": 0,
+    "desc": "林地的起点，一株努力向上生长的小芽。",
+    "art": "tree_sapling"
+  },
+  {
+    "id": "oak",
+    "name": "暖橡",
+    "rarity": "free",
+    "price": 0,
+    "desc": "枝叶宽厚的橡树，安静地陪你读完一章书。",
+    "art": "tree_oak"
+  },
+  {
+    "id": "sakura",
+    "name": "樱见",
+    "rarity": "common",
+    "price": 300,
+    "desc": "春日限定的粉樱，风一吹就落下花瓣。",
+    "art": "tree_sakura"
+  },
+  {
+    "id": "ginkgo",
+    "name": "金杏",
+    "rarity": "common",
+    "price": 300,
+    "desc": "深秋的金色银杏，叶脉里藏着时间。",
+    "art": "tree_ginkgo"
+  },
+  {
+    "id": "maple",
+    "name": "赤枫",
+    "rarity": "rare",
+    "price": 800,
+    "desc": "霜后最热烈的枫，适合攻克难题的夜晚。",
+    "art": "tree_maple"
+  },
+  {
+    "id": "moon",
+    "name": "月光树",
+    "rarity": "legendary",
+    "price": 2000,
+    "desc": "只在极安静的专注里显现，树冠泛着淡淡的月光。",
+    "art": "tree_moon"
+  }
+]
