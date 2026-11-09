@@ -39,6 +39,6 @@ bash build.sh :app:assembleRelease
 3. `git add -A && git commit -m "说明"`
 4. `git push`
 
-仓库地址：https://github.com/TJ-ddl/forest_grove
+仓库地址：https://github.com/TJ-ddl/focus_grove
 
-如果仓库在 GitHub 上改过名，记得同步 `git remote set-url origin <新地址>`。
+如果仓库在 GitHub 上再次改名，记得同步 `git remote set-url origin <新地址>`。
