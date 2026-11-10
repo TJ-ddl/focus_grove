@@ -89,6 +89,27 @@ class Store private constructor(private val context: Context) {
         return ok
     }
 
+    /** Hides a withered tree from the forest without deleting its failed session. */
+    fun clearWithered(sessionId: String, cost: Int = Economy.CLEAR_WITHERED_COST): Boolean {
+        var ok = false
+        update { current ->
+            val target = current.sessions.firstOrNull { it.id == sessionId }
+            if (target == null || target.status != "withered" || target.cleared ||
+                current.coins < cost
+            ) current
+            else {
+                ok = true
+                current.copy(
+                    coins = current.coins - cost,
+                    sessions = current.sessions.map {
+                        if (it.id == sessionId) it.copy(cleared = true) else it
+                    },
+                )
+            }
+        }
+        return ok
+    }
+
     fun setSettings(transform: (Settings) -> Settings) {
         update { it.copy(settings = transform(it.settings)) }
     }

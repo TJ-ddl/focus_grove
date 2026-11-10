@@ -189,6 +189,7 @@ fun HomeScreen(
         ModalBottomSheet(onDismissRequest = { pickerOpen = false }, containerColor = Cream) {
             Column(
                 Modifier
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp)
                     .padding(bottom = 28.dp)
             ) {

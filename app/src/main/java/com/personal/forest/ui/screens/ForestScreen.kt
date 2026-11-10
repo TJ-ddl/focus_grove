@@ -17,14 +17,23 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,9 +44,11 @@ import com.personal.forest.data.Economy
 import com.personal.forest.data.GameData
 import com.personal.forest.data.Session
 import com.personal.forest.data.Species
+import com.personal.forest.data.Store
 import com.personal.forest.ui.components.CoinPill
 import com.personal.forest.ui.components.Scenery
 import com.personal.forest.ui.components.TreeArt
+import com.personal.forest.ui.theme.Clay
 import com.personal.forest.ui.theme.Cream
 import com.personal.forest.ui.theme.CreamDeep
 import com.personal.forest.ui.theme.Forest
@@ -46,24 +57,29 @@ import com.personal.forest.ui.theme.Muted
 import com.personal.forest.util.dayLabel
 import com.personal.forest.util.formatMinutes
 import com.personal.forest.util.timeLabel
+import kotlinx.coroutines.launch
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlin.random.Random
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ForestScreen(data: GameData, speciesList: List<Species>) {
+fun ForestScreen(store: Store, data: GameData, speciesList: List<Species>) {
     val sessions = data.sessions
     val today = LocalDate.now()
     val days = remember(sessions) {
         val now = LocalDate.now()
         val earliest = sessions.minOfOrNull { Economy.dayOf(it.startAt) } ?: now
-        val start = maxOf(earliest, now.minusDays(89))
         generateSequence(now) { it.minusDays(1) }
-            .takeWhile { !it.isBefore(start) }
+            .takeWhile { !it.isBefore(earliest) }
             .toList()
     }
+    val byDay = remember(sessions) { sessions.groupBy { Economy.dayOf(it.startAt) } }
     val pagerState = rememberPagerState(pageCount = { days.size })
+    val scope = rememberCoroutineScope()
     var selected by remember { mutableStateOf<Session?>(null) }
+    var calendarOpen by remember { mutableStateOf(false) }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -74,13 +90,21 @@ fun ForestScreen(data: GameData, speciesList: List<Species>) {
                 Text("林地", fontSize = 26.sp, fontWeight = FontWeight.SemiBold, color = Ink)
                 Text("每一天，都留下一片林地", fontSize = 13.sp, color = Muted)
             }
+            Text(
+                "日历",
+                fontSize = 13.sp,
+                color = Forest,
+                modifier = Modifier
+                    .clickable { calendarOpen = true }
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
             CoinPill(data.coins)
         }
         HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             val day = days[page]
             DayForest(
                 day = day,
-                daySessions = sessions.filter { Economy.dayOf(it.startAt) == day },
+                daySessions = byDay[day].orEmpty(),
                 speciesList = speciesList,
                 today = today,
                 onSelect = { selected = it },
@@ -88,10 +112,50 @@ fun ForestScreen(data: GameData, speciesList: List<Species>) {
         }
     }
 
+    if (calendarOpen) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = days[pagerState.currentPage].toEpochDay() * 86_400_000L,
+            selectableDates = object : SelectableDates {
+                override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    val date = Instant.ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneOffset.UTC).toLocalDate()
+                    return !date.isAfter(today) && !date.isBefore(days.last())
+                }
+            },
+        )
+        DatePickerDialog(
+            onDismissRequest = { calendarOpen = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    val millis = pickerState.selectedDateMillis
+                    calendarOpen = false
+                    if (millis != null) {
+                        val date = Instant.ofEpochMilli(millis)
+                            .atZone(ZoneOffset.UTC).toLocalDate()
+                        val index = days.indexOf(date)
+                        if (index >= 0) scope.launch { pagerState.scrollToPage(index) }
+                    }
+                }) { Text("查看") }
+            },
+            dismissButton = {
+                TextButton(onClick = { calendarOpen = false }) { Text("取消") }
+            },
+        ) {
+            DatePicker(state = pickerState, showModeToggle = false)
+        }
+    }
+
     val sel = selected
     if (sel != null) {
         ModalBottomSheet(onDismissRequest = { selected = null }, containerColor = Cream) {
-            SessionDetail(sel, speciesList)
+            SessionDetail(
+                session = sel,
+                speciesList = speciesList,
+                coins = data.coins,
+                onClear = {
+                    if (store.clearWithered(sel.id)) selected = null
+                },
+            )
         }
     }
 }
@@ -130,7 +194,8 @@ private fun DayForest(
 ) {
     val successCount = daySessions.count { it.status == "success" }
     val minutes = daySessions.filter { it.status == "success" }.sumOf { it.plannedMin }
-    val placed = remember(daySessions) { placeTrees(daySessions) }
+    val visible = remember(daySessions) { daySessions.filter { !it.cleared } }
+    val placed = remember(visible) { placeTrees(visible) }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
         Scenery(Modifier.fillMaxSize()) {}
@@ -149,9 +214,9 @@ private fun DayForest(
                 Text("$minutes 分钟 · $successCount 棵树", fontSize = 12.sp, color = Muted)
             }
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-                if (daySessions.isEmpty()) {
+                if (visible.isEmpty()) {
                     Text(
-                        "这一天还没有树",
+                        if (daySessions.isEmpty()) "这一天还没有树" else "枯树已清理",
                         fontSize = 13.sp,
                         color = Muted,
                         modifier = Modifier.align(Alignment.Center),
@@ -182,9 +247,15 @@ private fun DayForest(
 }
 
 @Composable
-private fun SessionDetail(session: Session, speciesList: List<Species>) {
+private fun SessionDetail(
+    session: Session,
+    speciesList: List<Species>,
+    coins: Int,
+    onClear: () -> Unit,
+) {
     val species = speciesList.firstOrNull { it.id == session.speciesId }
     val success = session.status == "success"
+    var confirmClear by remember { mutableStateOf(false) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -222,7 +293,50 @@ private fun SessionDetail(session: Session, speciesList: List<Species>) {
         if (!success) {
             Spacer(Modifier.height(10.dp))
             Text("这棵树因为中途离开而枯萎了", fontSize = 12.sp, color = Muted)
+            Spacer(Modifier.height(14.dp))
+            Button(
+                onClick = { confirmClear = true },
+                enabled = coins >= Economy.CLEAR_WITHERED_COST,
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Clay,
+                    contentColor = Cream,
+                ),
+            ) {
+                Text(
+                    if (coins >= Economy.CLEAR_WITHERED_COST) {
+                        "铲除枯树 · ${Economy.CLEAR_WITHERED_COST} 金币"
+                    } else {
+                        "铲除枯树 · 金币不足"
+                    },
+                    fontSize = 14.sp,
+                )
+            }
         }
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("铲除这棵枯树？") },
+            text = {
+                Text(
+                    "花费 ${Economy.CLEAR_WITHERED_COST} 金币。" +
+                        "枯树会从林地消失，失败记录和成功率仍会保留。"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    onClear()
+                }) { Text("铲除", color = Clay) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClear = false }) { Text("取消") }
+            },
+            containerColor = Cream,
+        )
     }
 }
 

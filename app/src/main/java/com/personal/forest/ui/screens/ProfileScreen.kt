@@ -1,10 +1,12 @@
 package com.personal.forest.ui.screens
 
+import android.content.Context
 import android.content.Intent
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,12 +14,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -60,6 +69,7 @@ fun ProfileScreen(store: Store, data: GameData, speciesList: List<Species>) {
     val context = LocalContext.current
     var unlockTarget by remember { mutableStateOf<Species?>(null) }
     var usageGranted by remember { mutableStateOf(hasUsageAccess(context)) }
+    var whitelistOpen by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
@@ -234,7 +244,27 @@ fun ProfileScreen(store: Store, data: GameData, speciesList: List<Species>) {
                     color = Muted,
                 )
                 Spacer(Modifier.height(8.dp))
-                Text("林地 1.0 · 本地版", fontSize = 11.sp, color = Muted)
+                Text("林地 1.1 · 本地版", fontSize = 11.sp, color = Muted)
+            }
+        }
+
+        SectionTitle("专注白名单", "切到这些 App 不判枯")
+        SoftCard(Modifier.fillMaxWidth(), onClick = { whitelistOpen = true }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "已添加 ${data.settings.whitelist.size} 个 App",
+                        fontSize = 14.sp,
+                        color = Ink,
+                    )
+                    Text(
+                        if (usageGranted) "切到列表外的 App 仍会判枯"
+                        else "需要「使用情况访问」权限才能识别当前 App",
+                        fontSize = 11.sp,
+                        color = Muted,
+                    )
+                }
+                Text("管理 ›", fontSize = 13.sp, color = Forest)
             }
         }
         Spacer(Modifier.height(28.dp))
@@ -267,6 +297,105 @@ fun ProfileScreen(store: Store, data: GameData, speciesList: List<Species>) {
             },
             containerColor = Cream,
         )
+    }
+
+    if (whitelistOpen) {
+        WhitelistSheet(
+            context = context,
+            whitelist = data.settings.whitelist,
+            usageGranted = usageGranted,
+            onToggle = { pkg ->
+                store.setSettings { s ->
+                    s.copy(
+                        whitelist = if (pkg in s.whitelist) s.whitelist - pkg
+                        else s.whitelist + pkg,
+                    )
+                }
+            },
+            onGrant = {
+                context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+            },
+            onDismiss = { whitelistOpen = false },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Suppress("DEPRECATION")
+@Composable
+private fun WhitelistSheet(
+    context: Context,
+    whitelist: List<String>,
+    usageGranted: Boolean,
+    onToggle: (String) -> Unit,
+    onGrant: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by remember { mutableStateOf("") }
+    val apps = remember {
+        context.packageManager.queryIntentActivities(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+            0,
+        ).map {
+            it.activityInfo.packageName to it.loadLabel(context.packageManager).toString()
+        }.filter { it.first != context.packageName }
+            .distinctBy { it.first }
+            .sortedBy { it.second }
+    }
+    val filtered = remember(query, apps) {
+        if (query.isBlank()) apps
+        else apps.filter {
+            it.second.contains(query, ignoreCase = true) ||
+                it.first.contains(query, ignoreCase = true)
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Cream) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp)
+        ) {
+            Text("专注白名单", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = Ink)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (usageGranted) "打开这些 App 不算离开；切到列表外的 App 仍会判枯。"
+                else "需要先授予「使用情况访问」权限，否则无法识别你切到了哪个 App。",
+                fontSize = 11.sp,
+                color = Muted,
+            )
+            if (!usageGranted) {
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onGrant) { Text("去授权", fontSize = 13.sp) }
+            }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text("搜索应用", fontSize = 13.sp) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(4.dp))
+            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
+                items(filtered, key = { it.first }) { (pkg, label) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onToggle(pkg) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = pkg in whitelist, onCheckedChange = null)
+                        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                            Text(label, fontSize = 14.sp, color = Ink, maxLines = 1)
+                            Text(pkg, fontSize = 10.sp, color = Muted, maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

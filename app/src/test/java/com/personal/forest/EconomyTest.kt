@@ -42,6 +42,18 @@ class EconomyTest {
     }
 
     @Test
+    fun clearedWitheredTreeStaysInFailureStats() {
+        val today = LocalDate.of(2026, 11, 8)
+        val sessions = listOf(
+            session("1", today, 25),
+            session("2", today, 50, status = "withered").copy(cleared = true),
+        )
+        assertEquals(25, Economy.minutesOn(sessions, today))
+        assertEquals(1, Economy.treesOn(sessions, today))
+        assertEquals(0.5f, Economy.successRate(sessions), 0.001f)
+    }
+
+    @Test
     fun streakCountsConsecutiveDays() {
         val today = LocalDate.of(2026, 11, 8)
         val sessions = listOf(

@@ -64,7 +64,7 @@ fun ForestAppRoot() {
                     0 -> HomeScreen(store, data, speciesList) { species, minutes, tag ->
                         FocusService.start(context, species, minutes, tag)
                     }
-                    1 -> ForestScreen(data, speciesList)
+                    1 -> ForestScreen(store, data, speciesList)
                     2 -> StatsScreen(data)
                     else -> ProfileScreen(store, data, speciesList)
                 }

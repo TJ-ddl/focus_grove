@@ -1,19 +1,14 @@
 package com.personal.forest.session
 
-import android.app.AppOpsManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.app.usage.UsageEvents
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
-import android.os.Process
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -24,6 +19,8 @@ import com.personal.forest.data.Economy
 import com.personal.forest.data.Session
 import com.personal.forest.data.Species
 import com.personal.forest.data.Store
+import com.personal.forest.util.foregroundPackage
+import com.personal.forest.util.hasUsageAccess
 import com.personal.forest.widget.TodayWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -128,20 +125,28 @@ class FocusService : Service() {
     }
 
     /**
-     * Best-effort strict mode: poll the foreground app and wither after 6s elsewhere.
+     * Best-effort watch: poll the foreground app and wither after 6s elsewhere.
+     * Runs in strict mode, and also when a whitelist exists so leaving a whitelisted
+     * app for another one still counts as leaving.
      * shortcut: usage events can be throttled by the OEM, so this is a guard, not a wall.
      */
     private fun startStrictWatch(r: RunningSession) {
         strictJob?.cancel()
         strictJob = scope.launch {
             var misses = 0
+            var lastForeground: String? = null
             while (isActive) {
                 delay(3000)
-                if (!store.data.value.settings.strictMode || !hasUsageAccess() || !power.isInteractive) {
+                val settings = store.data.value.settings
+                if ((!settings.strictMode && settings.whitelist.isEmpty()) ||
+                    !hasUsageAccess(this@FocusService) ||
+                    !power.isInteractive
+                ) {
                     misses = 0
                     continue
                 }
-                val fg = foregroundPackage()
+                val fg = foregroundPackage(this@FocusService) ?: lastForeground
+                lastForeground = fg
                 if (fg == null) continue
                 if (fg == packageName || exempt(fg)) misses = 0 else misses++
                 if (misses >= 2) {
@@ -226,34 +231,8 @@ class FocusService : Service() {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
     )
 
-    private fun hasUsageAccess(): Boolean {
-        val ops = getSystemService(AppOpsManager::class.java)
-        return ops.checkOpNoThrow(
-            AppOpsManager.OPSTR_GET_USAGE_STATS,
-            Process.myUid(),
-            packageName,
-        ) == AppOpsManager.MODE_ALLOWED
-    }
-
-    private fun foregroundPackage(): String? {
-        val usm = getSystemService(UsageStatsManager::class.java) ?: return null
-        val now = System.currentTimeMillis()
-        val events = usm.queryEvents(now - 10_000L, now) ?: return null
-        val event = UsageEvents.Event()
-        var pkg: String? = null
-        while (events.hasNextEvent()) {
-            events.getNextEvent(event)
-            val resumed = if (Build.VERSION.SDK_INT >= 29) {
-                event.eventType == UsageEvents.Event.ACTIVITY_RESUMED
-            } else {
-                event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND
-            }
-            if (resumed) pkg = event.packageName
-        }
-        return pkg
-    }
-
-    private fun exempt(pkg: String): Boolean = pkg in EXEMPT_PACKAGES
+    private fun exempt(pkg: String): Boolean =
+        pkg in EXEMPT_PACKAGES || pkg in store.data.value.settings.whitelist
 
     override fun onBind(intent: Intent?): IBinder? = null
 

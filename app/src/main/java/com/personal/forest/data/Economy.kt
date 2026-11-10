@@ -5,6 +5,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 object Economy {
+    /** Cosmetic removal of a withered tree; the failed session stays in the stats. */
+    const val CLEAR_WITHERED_COST = 3000
+
     /** Successful session reward: 2 coins per minute, +20 for sessions of an hour or more. */
     fun coins(minutes: Int): Int = minutes * 2 + if (minutes >= 60) 20 else 0
     fun witheredCoins(): Int = 0

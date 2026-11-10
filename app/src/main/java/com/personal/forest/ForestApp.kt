@@ -10,8 +10,11 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.personal.forest.data.Store
 import com.personal.forest.session.Focus
 import com.personal.forest.session.FocusService
+import com.personal.forest.util.foregroundPackage
+import com.personal.forest.util.hasUsageAccess
 
 class ForestApp : Application(), DefaultLifecycleObserver {
 
@@ -35,7 +38,17 @@ class ForestApp : Application(), DefaultLifecycleObserver {
                 pm.isInteractive &&
                 !state.isAtLeast(Lifecycle.State.STARTED)
             ) {
-                FocusService.instance?.abandonFromApp()
+                val settings = Store.get(this@ForestApp).data.value.settings
+                val target = if (settings.whitelist.isNotEmpty() &&
+                    hasUsageAccess(this@ForestApp)
+                ) {
+                    foregroundPackage(this@ForestApp)
+                } else {
+                    null
+                }
+                if (target == null || target !in settings.whitelist) {
+                    FocusService.instance?.abandonFromApp()
+                }
             }
         }, 1200L)
     }

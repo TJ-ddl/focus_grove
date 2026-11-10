@@ -32,6 +32,30 @@
     "art": "tree_ginkgo"
   },
   {
+    "id": "pine",
+    "name": "青松",
+    "rarity": "common",
+    "price": 300,
+    "desc": "四季常青的松，安静守着每一个早起的清晨。",
+    "art": "tree_pine"
+  },
+  {
+    "id": "willow",
+    "name": "垂柳",
+    "rarity": "rare",
+    "price": 800,
+    "desc": "枝条低垂的柳，风过时把时间拉得很长。",
+    "art": "tree_willow"
+  },
+  {
+    "id": "persimmon",
+    "name": "柿红",
+    "rarity": "common",
+    "price": 300,
+    "desc": "挂满小灯笼的柿树，适合收获季节的午后。",
+    "art": "tree_persimmon"
+  },
+  {
     "id": "maple",
     "name": "赤枫",
     "rarity": "rare",

@@ -13,6 +13,7 @@ data class Session(
     val tag: String = "",
     val coins: Int = 0,
     val seed: Int = 0,
+    val cleared: Boolean = false, // withered tree removed from the forest; stats keep the failure
 )
 
 @Serializable
@@ -20,6 +21,7 @@ data class Settings(
     val strictMode: Boolean = false,
     val lastSpeciesId: String = "sapling",
     val lastMinutes: Int = 25,
+    val whitelist: List<String> = emptyList(),
 )
 
 @Serializable

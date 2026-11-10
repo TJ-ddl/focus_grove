@@ -63,6 +63,27 @@ SPECIES = {
         "shape": (1.00, 1.00),
         "style": "sparkles",
     },
+    "pine": {
+        "trunk": (76, 62, 48),
+        "leaves": [(64, 100, 76), (48, 82, 62), (88, 124, 94), (108, 140, 104)],
+        "accent": None,
+        "shape": (0.72, 1.18),
+        "style": "pine",
+    },
+    "willow": {
+        "trunk": (96, 78, 58),
+        "leaves": [(178, 198, 132), (150, 176, 108), (204, 218, 158), (132, 160, 96)],
+        "accent": None,
+        "shape": (1.15, 1.00),
+        "style": "willow",
+    },
+    "persimmon": {
+        "trunk": (92, 68, 52),
+        "leaves": [(104, 138, 88), (84, 116, 74), (130, 160, 108), (70, 100, 66)],
+        "accent": (224, 132, 66),
+        "shape": (1.05, 0.92),
+        "style": "fruit",
+    },
 }
 
 
@@ -179,6 +200,45 @@ def canopy(img, cx, cy, rw, rh, palette, count, rnd):
     img.alpha_composite(speckle.filter(ImageFilter.GaussianBlur(0.8)))
 
 
+def conifer(img, cx, cy, rw, rh, palette, count, rnd):
+    """Layered boughs give a fir silhouette while keeping the watercolor blobs."""
+    layers = max(3, min(7, count // 2))
+    for i in range(layers):
+        t = i / (layers - 1)
+        y = cy + rh * (0.62 - 1.18 * t)
+        w = rw * (1.02 - 0.72 * t)
+        h = rh * (0.24 - 0.05 * t)
+        blob(img, cx + rnd.uniform(-0.04, 0.04) * rw, y, w, h,
+             palette[i % len(palette)], 78, max(4, h * 0.16), rnd, wobble=0.24)
+    blob(img, cx - rw * 0.22, cy - rh * 0.05, rw * 0.50, rh * 0.42,
+         palette[2], 38, 8, rnd)
+
+
+def willow(img, cx, cy, rw, rh, palette, count, rnd):
+    canopy(img, cx, cy - rh * 0.10, rw * 0.92, rh * 0.80, palette, count, rnd)
+    layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    for _ in range(max(10, count * 2)):
+        theta = rnd.uniform(0.12, 0.88) * math.pi
+        x = cx + math.cos(theta) * rw * 0.88
+        top = cy + math.sin(theta) * rh * 0.70
+        length = rnd.uniform(0.45, 0.95) * rh
+        sway = rnd.uniform(-0.16, 0.16) * rw
+        draw.line(
+            [
+                (x, top),
+                (x + sway * 0.35, top + length * 0.45),
+                (x + sway, top + length),
+                (x + sway * 0.80, top + length * 1.12),
+            ],
+            fill=rgba(palette[rnd.randrange(len(palette))], rnd.randint(90, 150)),
+            width=max(2, int(rw * 0.012)),
+            joint="curve",
+        )
+    layer = layer.filter(ImageFilter.GaussianBlur(1.2))
+    img.alpha_composite(layer)
+
+
 def falling(img, cx, cy, rw, rh, color, count, rnd, size):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
@@ -258,7 +318,12 @@ def render(species_id, stage):
         y1 = y0 - math.cos(angle) * length * 0.55
         branch(img, x0, y0, x1, y1, base_w * 0.28, sp["trunk"])
 
-    canopy(img, base_x, canopy_cy, rw, rh, sp["leaves"], cfg["blobs"], rnd)
+    if sp["style"] == "pine":
+        conifer(img, base_x, canopy_cy, rw, rh, sp["leaves"], cfg["blobs"], rnd)
+    elif sp["style"] == "willow":
+        willow(img, base_x, canopy_cy, rw, rh, sp["leaves"], cfg["blobs"], rnd)
+    else:
+        canopy(img, base_x, canopy_cy, rw, rh, sp["leaves"], cfg["blobs"], rnd)
 
     accent = sp["accent"]
     style = sp["style"]
@@ -272,6 +337,18 @@ def render(species_id, stage):
                 r = rnd.uniform(4, 7)
                 draw.ellipse([x - r * 0.8, y - r, x + r * 0.8, y + r], fill=rgba(accent, 210))
                 draw.line([(x, y - r), (x, y - r * 1.7)], fill=rgba((90, 70, 50), 180), width=2)
+            img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(0.6)))
+        elif style == "fruit":
+            layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(layer)
+            for _ in range(9):
+                x = base_x + rnd.uniform(-0.65, 0.65) * rw
+                y = canopy_cy + rnd.uniform(-0.15, 0.75) * rh
+                r = rnd.uniform(7, 11)
+                draw.ellipse([x - r * 0.9, y - r, x + r * 0.9, y + r],
+                             fill=rgba(accent, 220))
+                draw.line([(x, y - r), (x, y - r * 1.6)],
+                          fill=rgba((90, 70, 50), 170), width=2)
             img.alpha_composite(layer.filter(ImageFilter.GaussianBlur(0.6)))
         elif style == "petals":
             falling(img, base_x, canopy_cy, rw, rh, accent, 26, rnd, 8)
@@ -294,11 +371,13 @@ def render(species_id, stage):
 
 def contact_sheet():
     thumb_w, thumb_h = 300, 400
+    cols = 3
     ids = list(SPECIES)
-    sheet = Image.new("RGB", (thumb_w * 3, thumb_h * 2), (247, 242, 231))
+    rows = (len(ids) + cols - 1) // cols
+    sheet = Image.new("RGB", (thumb_w * cols, thumb_h * rows), (247, 242, 231))
     for index, sid in enumerate(ids):
         art = Image.open(f"art/preview/tree_{sid}_3.png").convert("RGBA").resize((thumb_w, thumb_h))
-        sheet.paste(art, ((index % 3) * thumb_w, (index // 3) * thumb_h), art)
+        sheet.paste(art, ((index % cols) * thumb_w, (index // cols) * thumb_h), art)
     sheet.save("art/preview/contact_stage3.png")
 
     stages = Image.new("RGB", (thumb_w * 3, thumb_h), (247, 242, 231))

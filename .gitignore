@@ -15,3 +15,6 @@ keystore/
 .idea/
 *.iml
 .DS_Store
+
+# Python tools
+__pycache__/
