@@ -23,10 +23,11 @@ class EconomyTest {
         minutes: Int = 25,
         status: String = "success",
         tag: String = "",
+        hour: Int = 9,
     ): Session = Session(
         id = id,
         speciesId = "oak",
-        startAt = day.atTime(9, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
+        startAt = day.atTime(hour, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli(),
         plannedMin = minutes,
         actualSec = minutes * 60,
         status = status,
@@ -39,6 +40,61 @@ class EconomyTest {
         assertEquals(50, Economy.coins(25))
         assertEquals(140, Economy.coins(60))
         assertEquals(240, Economy.coins(110))
+    }
+
+    @Test
+    fun treeStageFollowsFocusLength() {
+        assertEquals(1, Economy.stageForMinutes(10))
+        assertEquals(1, Economy.stageForMinutes(29))
+        assertEquals(2, Economy.stageForMinutes(30))
+        assertEquals(2, Economy.stageForMinutes(89))
+        assertEquals(3, Economy.stageForMinutes(90))
+        assertEquals(3, Economy.stageForMinutes(120))
+        assertTrue(Economy.widthForMinutes(120) > Economy.widthForMinutes(10))
+    }
+
+    @Test
+    fun weeklyAverageAndLongestSession() {
+        val today = LocalDate.of(2026, 11, 8)
+        val sessions = listOf(
+            session("1", today, 30),
+            session("2", today.minusDays(1), 120),
+            session("3", today.minusDays(2), 50, status = "withered"),
+        )
+        assertEquals(21, Economy.weeklyAverageMinutes(sessions, today))
+        assertEquals(120, Economy.longestSession(sessions))
+        assertEquals(listOf(0, 0, 0, 0, 0, 1, 1), Economy.weeklyTrees(sessions, today))
+    }
+
+    @Test
+    fun daypartBucketsFollowStartHour() {
+        val today = LocalDate.of(2026, 11, 8)
+        val sessions = listOf(
+            session("1", today, 25, hour = 8),
+            session("2", today, 25, hour = 14),
+            session("3", today, 25, hour = 20),
+            session("4", today, 25, hour = 23),
+            session("5", today, 25, hour = 2, status = "withered"),
+        )
+        assertEquals(
+            listOf("上午" to 25, "下午" to 25, "晚上" to 25, "深夜" to 25),
+            Economy.daypartMinutes(sessions),
+        )
+    }
+
+    @Test
+    fun tagWeeklySpansSevenDays() {
+        val today = LocalDate.of(2026, 11, 8)
+        val sessions = listOf(
+            session("1", today, 30, tag = "学习"),
+            session("2", today.minusDays(1), 45, tag = "学习"),
+            session("3", today, 20, tag = "运动"),
+        )
+        val weekly = Economy.tagWeeklyMinutes(sessions, "学习", today)
+        assertEquals(7, weekly.size)
+        assertEquals(30, weekly.last())
+        assertEquals(45, weekly[weekly.lastIndex - 1])
+        assertEquals(0, weekly.first())
     }
 
     @Test

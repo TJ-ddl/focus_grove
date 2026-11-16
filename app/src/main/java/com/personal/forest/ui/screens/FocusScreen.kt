@@ -2,12 +2,7 @@ package com.personal.forest.ui.screens
 
 import android.os.SystemClock
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -164,16 +159,6 @@ private fun GrowthTree(species: Species, progress: Float, modifier: Modifier) {
         animationSpec = tween(900),
         label = "treeScale",
     )
-    val transition = rememberInfiniteTransition(label = "sway")
-    val angle by transition.animateFloat(
-        initialValue = -1.1f,
-        targetValue = 1.1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2600, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "swayAngle",
-    )
     Box(modifier, contentAlignment = Alignment.BottomCenter) {
         Crossfade(targetState = stage, animationSpec = tween(800), label = "treeStage") { s ->
             Image(
@@ -184,7 +169,6 @@ private fun GrowthTree(species: Species, progress: Float, modifier: Modifier) {
                     .graphicsLayer {
                         scaleX = scale
                         scaleY = scale
-                        rotationZ = angle
                     },
                 contentScale = ContentScale.Fit,
             )

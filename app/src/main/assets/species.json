@@ -70,5 +70,45 @@
     "price": 2000,
     "desc": "只在极安静的专注里显现，树冠泛着淡淡的月光。",
     "art": "tree_moon"
+  },
+  {
+    "id": "spruce",
+    "name": "云杉",
+    "rarity": "common",
+    "price": 300,
+    "desc": "枝头带霜气的冷绿针叶，适合清晨的第一段专注。",
+    "art": "tree_spruce"
+  },
+  {
+    "id": "parasol",
+    "name": "梧桐",
+    "rarity": "common",
+    "price": 300,
+    "desc": "一叶知秋的梧桐，树冠撑得像一把伞。",
+    "art": "tree_parasol"
+  },
+  {
+    "id": "banyan",
+    "name": "榕荫",
+    "rarity": "common",
+    "price": 300,
+    "desc": "气根垂地的老榕，自己就是一小片阴凉。",
+    "art": "tree_banyan"
+  },
+  {
+    "id": "plum",
+    "name": "梅影",
+    "rarity": "rare",
+    "price": 800,
+    "desc": "寒冬里开白花的梅，安静得能听见雪落。",
+    "art": "tree_plum"
+  },
+  {
+    "id": "hawthorn",
+    "name": "山楂",
+    "rarity": "rare",
+    "price": 800,
+    "desc": "秋冬挂满红果的山楂，酸里带一点甜。",
+    "art": "tree_hawthorn"
   }
 ]

@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.personal.forest.data.Achievements
+import com.personal.forest.data.Economy
 import com.personal.forest.data.SpeciesRepo
 import com.personal.forest.session.FinishedResult
 import com.personal.forest.ui.components.Scenery
@@ -56,7 +57,7 @@ fun ResultScreen(result: FinishedResult, onDone: (goForest: Boolean) -> Unit) {
             if (species != null) {
                 TreeArt(
                     species,
-                    stage = 3,
+                    stage = Economy.stageForMinutes(result.session.plannedMin),
                     modifier = Modifier
                         .fillMaxWidth(0.68f)
                         .aspectRatio(0.75f),

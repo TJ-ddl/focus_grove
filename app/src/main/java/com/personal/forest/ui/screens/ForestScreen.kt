@@ -1,12 +1,14 @@
 package com.personal.forest.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,8 +16,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -33,7 +34,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +57,6 @@ import com.personal.forest.ui.theme.Muted
 import com.personal.forest.util.dayLabel
 import com.personal.forest.util.formatMinutes
 import com.personal.forest.util.timeLabel
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -76,8 +75,8 @@ fun ForestScreen(store: Store, data: GameData, speciesList: List<Species>) {
             .toList()
     }
     val byDay = remember(sessions) { sessions.groupBy { Economy.dayOf(it.startAt) } }
-    val pagerState = rememberPagerState(pageCount = { days.size })
-    val scope = rememberCoroutineScope()
+    var dayIndex by remember { mutableStateOf(0) }
+    val day = days[dayIndex.coerceIn(days.indices)]
     var selected by remember { mutableStateOf<Session?>(null) }
     var calendarOpen by remember { mutableStateOf(false) }
 
@@ -100,21 +99,18 @@ fun ForestScreen(store: Store, data: GameData, speciesList: List<Species>) {
             )
             CoinPill(data.coins)
         }
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            val day = days[page]
-            DayForest(
-                day = day,
-                daySessions = byDay[day].orEmpty(),
-                speciesList = speciesList,
-                today = today,
-                onSelect = { selected = it },
-            )
-        }
+        DayForest(
+            day = day,
+            daySessions = byDay[day].orEmpty(),
+            speciesList = speciesList,
+            today = today,
+            onSelect = { selected = it },
+        )
     }
 
     if (calendarOpen) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = days[pagerState.currentPage].toEpochDay() * 86_400_000L,
+            initialSelectedDateMillis = day.toEpochDay() * 86_400_000L,
             selectableDates = object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val date = Instant.ofEpochMilli(utcTimeMillis)
@@ -133,7 +129,7 @@ fun ForestScreen(store: Store, data: GameData, speciesList: List<Species>) {
                         val date = Instant.ofEpochMilli(millis)
                             .atZone(ZoneOffset.UTC).toLocalDate()
                         val index = days.indexOf(date)
-                        if (index >= 0) scope.launch { pagerState.scrollToPage(index) }
+                        if (index >= 0) dayIndex = index
                     }
                 }) { Text("查看") }
             },
@@ -172,14 +168,15 @@ private fun placeTrees(sessions: List<Session>): List<PlacedTree> {
     return sessions.mapIndexed { index, session ->
         val seed = if (session.seed != 0) session.seed else session.id.hashCode()
         val random = Random(seed)
-        val depth = random.nextFloat()
+        val growth = (session.plannedMin.coerceIn(10, 120) - 10) / 110f
         val baseX = 0.10f + (index + 0.5f) / count * 0.80f
         val jitter = (random.nextFloat() - 0.5f) * 0.10f
         PlacedTree(
             session = session,
-            xFrac = (baseX + jitter).coerceIn(0.10f, 0.90f),
-            yFrac = 0.20f - depth * 0.16f,
-            widthFrac = 0.24f + depth * 0.20f,
+            xFrac = (baseX + jitter).coerceIn(0.08f, 0.92f),
+            // 长焦点的树画得更高（更远），树苗贴近屏幕底部，叠在大树前面
+            yFrac = 0.06f + growth * 0.14f,
+            widthFrac = Economy.widthForMinutes(session.plannedMin),
         )
     }.sortedByDescending { it.yFrac }
 }
@@ -222,24 +219,35 @@ private fun DayForest(
                         modifier = Modifier.align(Alignment.Center),
                     )
                 }
-                placed.forEach { tree ->
-                    val species = speciesList.firstOrNull { it.id == tree.session.speciesId }
-                        ?: return@forEach
-                    val treeWidth = maxWidth * tree.widthFrac
-                    TreeArt(
-                        species = species,
-                        stage = 3,
-                        withered = tree.session.status != "success",
-                        modifier = Modifier
-                            .width(treeWidth)
-                            .height(treeWidth * 1.333f)
-                            .align(Alignment.BottomStart)
-                            .offset(
-                                x = maxWidth * tree.xFrac - treeWidth / 2,
-                                y = -maxHeight * tree.yFrac,
+                val viewportW = maxWidth
+                // 树少时占满一屏；多了内容横向变宽，左右滑动看全天的林子
+                val contentWidth = if (placed.size <= 3) viewportW else viewportW * (placed.size * 0.26f)
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .horizontalScroll(rememberScrollState()),
+                ) {
+                    BoxWithConstraints(Modifier.fillMaxHeight().width(contentWidth)) {
+                        placed.forEach { tree ->
+                            val species = speciesList.firstOrNull { it.id == tree.session.speciesId }
+                                ?: return@forEach
+                            val treeWidth = maxWidth * tree.widthFrac
+                            TreeArt(
+                                species = species,
+                                stage = Economy.stageForMinutes(tree.session.plannedMin),
+                                withered = tree.session.status != "success",
+                                modifier = Modifier
+                                    .width(treeWidth)
+                                    .height(treeWidth * 1.333f)
+                                    .align(Alignment.BottomStart)
+                                    .offset(
+                                        x = maxWidth * tree.xFrac - treeWidth / 2,
+                                        y = -maxHeight * tree.yFrac,
+                                    )
+                                    .clickable { onSelect(tree.session) },
                             )
-                            .clickable { onSelect(tree.session) },
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -264,7 +272,7 @@ private fun SessionDetail(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (species != null) {
-                TreeArt(species, 3, Modifier.size(56.dp), withered = !success)
+                TreeArt(species, Economy.stageForMinutes(session.plannedMin), Modifier.size(56.dp), withered = !success)
             }
             Column(Modifier.padding(start = 14.dp)) {
                 Text(
