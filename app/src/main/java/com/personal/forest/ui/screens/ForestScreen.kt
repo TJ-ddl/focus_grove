@@ -160,7 +160,6 @@ private data class PlacedTree(
     val session: Session,
     val xFrac: Float,
     val yFrac: Float,
-    val widthFrac: Float,
 )
 
 private fun placeTrees(sessions: List<Session>): List<PlacedTree> {
@@ -176,7 +175,6 @@ private fun placeTrees(sessions: List<Session>): List<PlacedTree> {
             xFrac = (baseX + jitter).coerceIn(0.08f, 0.92f),
             // 长焦点的树画得更高（更远），树苗贴近屏幕底部，叠在大树前面
             yFrac = 0.06f + growth * 0.14f,
-            widthFrac = Economy.widthForMinutes(session.plannedMin),
         )
     }.sortedByDescending { it.yFrac }
 }
@@ -221,7 +219,7 @@ private fun DayForest(
                 }
                 val viewportW = maxWidth
                 // 树少时占满一屏；多了内容横向变宽，左右滑动看全天的林子
-                val contentWidth = if (placed.size <= 3) viewportW else viewportW * (placed.size * 0.26f)
+                val contentWidth = if (placed.size <= 3) viewportW else viewportW * (placed.size * 0.6f)
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -231,14 +229,20 @@ private fun DayForest(
                         placed.forEach { tree ->
                             val species = speciesList.firstOrNull { it.id == tree.session.speciesId }
                                 ?: return@forEach
-                            val treeWidth = maxWidth * tree.widthFrac
+                            // 高度驱动：120 分钟树冠撑满视口；两个上限防窄屏/矮屏溢出
+                            val boxH = minOf(
+                                maxHeight * Economy.heightFractionForMinutes(tree.session.plannedMin),
+                                maxHeight * (1 - tree.yFrac) / 0.83f, // 画布顶 17% 留白，树冠不顶出屏幕
+                                maxWidth / 0.6f, // 树冠约占画布宽 80%，画布宽不超屏幕
+                            )
+                            val treeWidth = boxH * 0.75f
                             TreeArt(
                                 species = species,
                                 stage = Economy.stageForMinutes(tree.session.plannedMin),
                                 withered = tree.session.status != "success",
                                 modifier = Modifier
                                     .width(treeWidth)
-                                    .height(treeWidth * 1.333f)
+                                    .height(boxH)
                                     .align(Alignment.BottomStart)
                                     .offset(
                                         x = maxWidth * tree.xFrac - treeWidth / 2,

@@ -20,9 +20,13 @@ object Economy {
         else -> 3
     }
 
-    /** Tree slot width as a fraction of the day-forest content width, driven by focus length. */
-    fun widthForMinutes(min: Int): Float =
-        0.26f + 0.18f * (min.coerceIn(10, 120) / 120f)
+    /** Tree box height as a fraction of the forest viewport height: 10min → 12%, 120min → 100%.
+     *  Canopy fill per stage mirrors gen_art.py STAGES heights (0.15/0.42/0.76). */
+    fun heightFractionForMinutes(min: Int): Float {
+        val growth = (min.coerceIn(10, 120) - 10) / 110f
+        val canopy = when (stageForMinutes(min)) { 1 -> 0.15f; 2 -> 0.42f; else -> 0.76f }
+        return (0.12f + 0.88f * growth) / canopy
+    }
 
     fun dayOf(ms: Long): LocalDate =
         Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).toLocalDate()

@@ -50,7 +50,10 @@ class EconomyTest {
         assertEquals(2, Economy.stageForMinutes(89))
         assertEquals(3, Economy.stageForMinutes(90))
         assertEquals(3, Economy.stageForMinutes(120))
-        assertTrue(Economy.widthForMinutes(120) > Economy.widthForMinutes(10))
+        // 可见树高 = 盒高 × 树冠占画布比例：120 分钟撑满视口，10 分钟只是小树苗
+        assertEquals(1f, Economy.heightFractionForMinutes(120) * 0.76f, 0.001f)
+        assertEquals(0.12f, Economy.heightFractionForMinutes(10) * 0.15f, 0.001f)
+        assertTrue(Economy.heightFractionForMinutes(90) * 0.76f > Economy.heightFractionForMinutes(80) * 0.42f)
     }
 
     @Test
